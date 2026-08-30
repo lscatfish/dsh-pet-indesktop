@@ -129,6 +129,15 @@ if (-not $SkipCheck) {
     }
 }
 
+# Qt 死重清理：删除 QML/Quick 全家桶与孤儿 DLL（opengl32sw/Qt6Pdf/Qt6VirtualKeyboard
+# 等共约 37MB）缩包体积。纯 QWidget 应用不用 QML；脚本内已逐文件核对保留模块
+# 对删除项零依赖，安全（scripts/trim_bundle_qt.py 顶部说明）。
+Write-Host "[1.6/3] Trimming unused Qt modules from bundle..." -ForegroundColor Cyan
+python scripts\trim_bundle_qt.py --dir $appDir
+if ($LASTEXITCODE -ne 0) {
+    throw "Bundle Qt trim failed"
+}
+
 if (-not $SkipZip) {
     Write-Host "[2/3] Packing portable zip..." -ForegroundColor Cyan
     $zip = Join-Path $root "dist-onedir\$name-portable.zip"

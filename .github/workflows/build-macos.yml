@@ -80,6 +80,11 @@ jobs:
               $EXCLUDES \
               "$ENTRY"
             if [ $? -ne 0 ]; then echo "::error::$VARIANT 构建失败"; exit 1; fi
+            # Qt 死重清理（scripts/trim_bundle_qt.py）：纯 QWidget 应用不用
+            # QML/Quick，删除其全家桶与孤儿库（约 37MB）缩包体积；在后续
+            # codesign 之前执行，保证签名覆盖最终产物状态。
+            python scripts/trim_bundle_qt.py --dir "dist/dsh-pet-standalone-$VARIANT.app"
+            if [ $? -ne 0 ]; then echo "::error::$VARIANT Qt 死重清理失败"; exit 1; fi
           done
 
       # 中文编码自检（issue #26）：字节码字面量/文本资源/中文文件名被

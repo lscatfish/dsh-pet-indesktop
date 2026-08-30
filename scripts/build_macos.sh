@@ -69,6 +69,9 @@ for spec in "${variants[@]}"; do
 
     echo "==> 构建 $name.app"
     "$PYTHON_BIN" -m PyInstaller "${args[@]}" "$entry"
+    # Qt 死重清理（scripts/trim_bundle_qt.py）：纯 QWidget 应用不用 QML/Quick，
+    # 删除其全家桶与孤儿库（约 37MB）缩包体积；必须在 codesign 之前执行。
+    "$PYTHON_BIN" scripts/trim_bundle_qt.py --dir "$DIST_DIR/$name.app"
     codesign --force --deep --sign - "$DIST_DIR/$name.app"
 done
 
