@@ -65,6 +65,16 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "{#MyAppDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+; 覆盖升级时整体重装 Qt 运行时：先递归删除旧版残留的整个 _internal\PySide6，
+; 再由 [Files] 从新包完整复制。最终结果恒等于新包里的 PySide6 全集——裁剪掉
+; 多少死重、将来 Qt 模块增减，都自动对齐，无需维护任何文件名清单。
+; （不手写死重清单的原因：清单会随版本漂移——某版本真用上 Quick 时新包会带回
+; 这些文件，删除后重装即可；某版本 PySide6 塞进新的死重时清单又追不上。）
+; [InstallDelete] 在 [Files] 复制之前执行（Inno 安装第一步），先删旧再拷新，
+; 不会误伤本版本真正要用的模块。
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\_internal\PySide6"
+
 [Icons]
 Name: "{autoprograms}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
