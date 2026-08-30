@@ -13,10 +13,12 @@ QML/Quick。但 PyInstaller 的 PySide6.QtMultimedia hook 会把整套 Qt6Qml/Qt
 - macOS .app：<bundle>/Contents/Frameworks/PySide6/...；
 - 另兜底扫描 lib 根目录顶层，覆盖 Linux 下个别 Qt 库被拍平到 _internal/ 的情况。
 
-安全性依据（Windows 实测，跨平台同名模块同理）：
-- 包内保留的 Qt6*.dll / *.pyd 全部对目标文件零依赖（objdump 逐文件核对）；
-- 待删文件无任何导入方，是纯死重；macOS/Linux 上目标前缀均为应用零引用的
-  QML/Quick/Pdf/虚拟键盘家族，删除同样安全。
+安全性依据：
+- 包内保留的 Qt6* 库 / Python 扩展对目标前缀零依赖（曾用 objdump 逐文件核对）；
+- 例外：Qt 6.8+ 的 ffmpeg 多媒体后端插件（plugins/multimedia/ 下）动态链接
+  Qt6Qml/Qt6QmlMeta/Qt6QmlModels/Qt6QmlWorkerScript/Qt6Quick 这 5 个库，
+  由 _FFMPEG_BACKEND_KEEP 精确豁免（早期核对未覆盖插件依赖，Linux 上曾因此
+  导致 QMediaPlayer/QAudioDecoder 全面不可用，压缩音效静默失声）。
 
 用法（onedir 目录或 macOS .app 均自动识别）：
     python scripts/trim_bundle_qt.py --dir dist-onedir/dsh-pet-standalone-webm
@@ -49,6 +51,22 @@ TARGET_PREFIXES = (
     "opengl32sw",
 )
 
+# 豁免：Qt 6.8+ 的 ffmpeg 多媒体后端插件（plugins/multimedia/
+# libffmpegmediaplugin.so / ffmpegmediaplugin.dll）动态链接以下 5 个库
+# （QRhi 视频渲染路径所需；Linux Qt 6.11.2 实测 ldd 依赖闭包）。
+# 删掉它们会导致插件 dlopen 失败（"No QtMultimedia backends found"），
+# QMediaPlayer / QAudioDecoder 全部不可用，压缩音效（mp3 等）静默失声——
+# WAV 音效走 QSoundEffect 不依赖后端插件，故障极具隐蔽性。
+# 注意按归一化基名精确匹配：同名 Python 扩展（QtQml.abi3.so / QtQml.pyd，
+# 基名无 "6"）不在豁免之列，仍会被删除。
+_FFMPEG_BACKEND_KEEP = frozenset({
+    "Qt6Qml",
+    "Qt6QmlMeta",
+    "Qt6QmlModels",
+    "Qt6QmlWorkerScript",
+    "Qt6Quick",
+})
+
 # 需要整体删除的目录（按 PySide6 包内相对位置），QML 资源与 QML 调试插件
 _QML_DIRS = (
     "qml",
@@ -76,6 +94,8 @@ def _is_target(name: str) -> bool:
     base = name[3:] if name.startswith("lib") else name
     # stem = 第一个 '.' 之前的部分：Qt6Quick.dll / libQt6Quick.so.6 / Qt6Quick 均归一
     stem = base.split(".", 1)[0]
+    if stem in _FFMPEG_BACKEND_KEEP:
+        return False
     return stem.startswith(TARGET_PREFIXES)
 
 
