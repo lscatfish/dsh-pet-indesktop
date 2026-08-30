@@ -28,6 +28,12 @@ done
 
 cd "$ROOT"
 
+# 仅当要构建 gif 变体时才生成 GIF 素材（convert_to_gif 默认幂等：只转换
+# 缺失/过期的，CI 只构建 webm 变体时不会触发；与 build_macos.sh 一致）。
+if [[ ",$VARIANTS," == *",gif-chat,"* || ",$VARIANTS," == *",gif,"* ]]; then
+    "$PYTHON_BIN" scripts/convert_to_gif.py --clean
+fi
+
 mkdir -p "$DIST_DIR" "$WORK_DIR"
 
 IFS=',' read -ra variant_list <<< "$VARIANTS"

@@ -10,7 +10,6 @@
 #   ./scripts/build_macos.sh                          # 本地默认输出 build/macos
 #   ./scripts/build_macos.sh --dist dist              # CI：输出到 dist/
 #   ./scripts/build_macos.sh --variants webm-chat,webm # 只构建指定变体（CI 只发两个）
-#   ./scripts/build_macos.sh --skip-codesign          # 跳过 ad-hoc 签名（CI 后置统一做）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -22,13 +21,11 @@ BUILD_DEPS="$ROOT/build/.build-deps"
 DIST_DIR="$ROOT/build/macos"
 WORK_DIR="$ROOT/build/.pyinstaller/macos"
 VARIANTS="webm-chat,webm,gif-chat,gif"
-SKIP_CODESIGN=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --dist) DIST_DIR="$2"; shift 2 ;;
         --variants) VARIANTS="$2"; shift 2 ;;
-        --skip-codesign) SKIP_CODESIGN=1; shift ;;
         *) echo "未知参数: $1" >&2; exit 1 ;;
     esac
 done
@@ -37,8 +34,6 @@ cd "$ROOT"
 if [[ -d "$BUILD_DEPS/PyInstaller" ]]; then
     export PYTHONPATH="$BUILD_DEPS${PYTHONPATH:+:$PYTHONPATH}"
     export PYINSTALLER_CONFIG_DIR="$ROOT/build/.pyinstaller/config"
-elif [[ ! -d "$ROOT/build" ]]; then
-    mkdir -p "$ROOT/build"
 fi
 
 "$PYTHON_BIN" scripts/make_icon.py --icns
@@ -101,9 +96,7 @@ for variant in "${variant_list[@]}"; do
     "$PYTHON_BIN" scripts/trim_bundle_qt.py --dir "$DIST_DIR/$name.app"
     # 中文编码自检（issue #26）：字节码/资源/文件名被编码污染即中止。
     "$PYTHON_BIN" scripts/check_bundle_encoding.py --dir "$DIST_DIR/$name.app"
-    if [[ "$SKIP_CODESIGN" -eq 0 ]]; then
-        codesign --force --deep --sign - "$DIST_DIR/$name.app"
-    fi
+    codesign --force --deep --sign - "$DIST_DIR/$name.app"
 done
 
 echo "macOS 构建完成：$DIST_DIR"
